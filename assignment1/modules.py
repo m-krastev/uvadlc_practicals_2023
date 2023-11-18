@@ -18,6 +18,7 @@ This module implements various modules of the network.
 You should fill in code into indicated sections.
 """
 import numpy as np
+import torch
 
 
 class LinearModule(object):
@@ -35,7 +36,7 @@ class LinearModule(object):
           input_layer: boolean, True if this is the first layer after the input, else False.
 
         TODO:
-        Initialize weight parameters using Kaiming initialization. 
+        Initialize weight parameters using Kaiming initialization.
         Initialize biases with zeros.
         Hint: the input_layer argument might be needed for the initialization
 
@@ -44,12 +45,25 @@ class LinearModule(object):
 
         # Note: For the sake of this assignment, please store the parameters
         # and gradients in this format, otherwise some unit tests might fail.
-        self.params = {'weight': None, 'bias': None} # Model parameters
-        self.grads = {'weight': None, 'bias': None} # Gradients
+        self.params = {"weight": None, "bias": None}  # Model parameters
+        self.grads = {"weight": None, "bias": None}  # Gradients
 
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+        
+        # # Initialize weight parameters using Kaiming initialization
+        fan_in = 1/np.sqrt(in_features) if input_layer else np.sqrt(2/in_features)
+        self.params["weight"] = np.random.normal(
+            0, fan_in, (out_features, in_features)
+        )
+
+        # Initialize biases with zeros
+        self.params["bias"] = np.zeros(out_features)
+
+        # Initialize gradients with zeros
+        self.grads["weight"] = np.zeros((out_features, in_features))
+        self.grads["bias"] = np.zeros(out_features)
 
         #######################
         # END OF YOUR CODE    #
@@ -69,11 +83,12 @@ class LinearModule(object):
 
         Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.
         """
-
         #######################
         # PUT YOUR CODE HERE  #
         #######################
 
+        self.x = x
+        out = x@ self.params["weight"].T + self.params["bias"]
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -98,6 +113,21 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        # Compute gradients of the loss with respect to the weight parameters
+        self.grads["weight"] = dout.T @ self.x
+
+        # Compute gradients of the loss with respect to the bias parameters
+        self.grads["bias"] = dout.sum(axis=0)
+
+        # Compute gradients of the loss with respect to the input
+        dx = dout @ self.params["weight"]
+        
+        
+        # self.params['weight'].backward(dout)
+        # self.grads['weight'] = self.params['weight']
+        # self.params['bias'].backward(dout)
+        # self.grads['bias'] = self.params['bias'].grad
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -114,7 +144,11 @@ class LinearModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        self.x = None
+        self.grads["weight"] = None
+        self.grads["bias"] = None
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -136,14 +170,16 @@ class ELUModule(object):
 
         TODO:
         Implement forward pass of the module.
-        
+
         Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.
         """
-        
+
         #######################
         # PUT YOUR CODE HERE  #
         #######################
 
+        self.x = x
+        out = np.where(x > 0, x, np.exp(x) - 1)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -166,6 +202,8 @@ class ELUModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        dx = np.where(self.x > 0, dout, dout * np.exp(self.x))
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -182,7 +220,7 @@ class ELUModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.x = None
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -212,6 +250,14 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        # Max trick
+        x_max = np.max(x, axis=1, keepdims=True)
+        x = x - x_max
+        expo = np.exp(x)
+        out = expo / np.sum(expo, axis=1, keepdims=True)
+
+        self.out = out
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -234,6 +280,12 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        dx = self.out * (
+            dout
+            - (dout * self.out)
+            @ np.ones((self.out.shape[1], self.out.shape[1]))
+        )
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -251,7 +303,7 @@ class SoftMaxModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.out = None
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -279,6 +331,9 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        onehot = np.eye(x.shape[1])[y]
+        out = -np.sum(onehot * np.log(x)) / len(y)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -301,6 +356,9 @@ class CrossEntropyModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+
+        onehot = np.eye(x.shape[1])[y]
+        dx = -onehot / x / len(y)
 
         #######################
         # END OF YOUR CODE    #

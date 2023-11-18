@@ -21,7 +21,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from modules import *
+import modules as nn
 
 
 class MLP(object):
@@ -48,11 +48,24 @@ class MLP(object):
         TODO:
         Implement initialization of the network.
         """
-
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        self.n_inputs = n_inputs
+        self.n_hidden = n_hidden
+        self.n_classes = n_classes
+        layer_sizes = [n_inputs] + n_hidden + [n_classes]
+        
+        self.layers = []
+        
+        for i in range(len(layer_sizes)-1):
+            self.layers += [nn.LinearModule(layer_sizes[i], layer_sizes[i+1], input_layer = (i == 0)), nn.ELUModule()]
+        
+        self.layers.pop()
+        
+        self.layers += [nn.SoftMaxModule()]
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -74,6 +87,9 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+        out = x
+        for layer in self.layers:
+            out = layer.forward(out)
 
         #######################
         # END OF YOUR CODE    #
@@ -95,7 +111,10 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        for layer in reversed(self.layers):
+            dout = layer.backward(dout)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -112,7 +131,16 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        for layer in self.layers:
+            layer.clear_cache()
+
         #######################
         # END OF YOUR CODE    #
         #######################
+
+    def update_params(self, learning_rate):        
+        for layer in self.layers:
+            if hasattr(layer, 'params'):
+                layer.params['weight'] -= learning_rate * layer.grads['weight']
+                layer.params['bias'] -= learning_rate * layer.grads['bias']
