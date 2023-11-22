@@ -121,7 +121,7 @@ def train_model(
 
     val_accuracies = []
     for i in range(epochs):
-        model.fc.train()
+        model.train()
         for batch in tqdm(dataloader_train):
             x, y = batch
             x, y = x.to(device), y.to(device)
@@ -194,7 +194,15 @@ def evaluate_model(model, data_loader, device):
 
 
 def main(
-    lr, batch_size, epochs, data_dir, seed, augmentation_name, test_noise, debug=True,checkpoint_name="best_model.pth"
+    lr,
+    batch_size,
+    epochs,
+    data_dir,
+    seed,
+    augmentation_name,
+    test_noise,
+    debug=True,
+    checkpoint_name="best_model.pth",
 ):
     """
     Main function for training and testing the model.
@@ -277,6 +285,7 @@ if __name__ == "__main__":
         "--augmentation_name", default=None, type=str, help="Augmentation to use."
     )
     parser.add_argument(
+
         "--test_noise",
         default=False,
         action="store_true",
@@ -287,9 +296,45 @@ if __name__ == "__main__":
         default=True,
         action="store_true",
     )
-    
-    parser.add_argument("--checkpoint_name", default="best_model.pth", type=str, help="Name of the checkpoint to save the best model on validation")
+
+    parser.add_argument(
+        "--checkpoint_name",
+        default="best_model.pth",
+        type=str,
+        help="Name of the checkpoint to save the best model on validation",
+    )
 
     args = parser.parse_args()
     kwargs = vars(args)
+
+    if args.debug:
+        import time
+        start = time.time()
+    
     main(**kwargs)
+
+    if args.debug:
+        print(f"Total time: {(time.time() - start)/60:.3f} min.")
+    
+    # Test accuracy: 0.5877000093460083
+
+    # device = 'mps'
+    
+    # # Evaluate the model on the test set
+    # test_set = get_test_set(args.data_dir, args.test_noise)
+
+    
+    # test_loader = data.DataLoader(
+    #     test_set, batch_size=args.batch_size, shuffle=False, num_workers=4
+    # )
+    
+    # model = get_model()
+    
+    # model.load_state_dict(torch.load(args.checkpoint_name, map_location=device))
+    
+    # model.to(device)
+    
+    # test_accuracy = evaluate_model(model, test_loader, device)
+
+    # if args.debug:
+    #     print(f"Test accuracy: {test_accuracy}")

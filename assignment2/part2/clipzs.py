@@ -95,7 +95,13 @@ def parse_option():
     )
 
     args = parser.parse_args()
-    args.device = "cuda" if torch.cuda.is_available() else "cpu"
+    args.device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
+    )
 
     return args
 
@@ -171,7 +177,18 @@ class ZeroshotCLIP(nn.Module):
         #   https://github.com/openai/CLIP#api
 
         # remove this line once you implement the function
-        raise NotImplementedError("Implement the precompute_text_features function.")
+        
+        # pip install git+https://github.com/openai/CLIP.git
+        features = []
+        for prompt in tqdm(prompts):
+            with torch.no_grad():
+                tokenized = clip.tokenize(prompt).to(device)
+                text_features = clip_model.encode_text(tokenized)
+                features.append(text_features)
+        
+        text_features = torch.cat(features)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+        return text_features
 
         #######################
         # END OF YOUR CODE    #
@@ -209,8 +226,13 @@ class ZeroshotCLIP(nn.Module):
         # - Read the CLIP API documentation for more details:
         #   https://github.com/openai/CLIP#api
 
-        # remove this line once you implement the function
-        raise NotImplementedError("Implement the model_inference function.")
+        image = self.clip_model.encode_image(image.to(self.device))
+        image /= image.norm(dim=-1, keepdim=True)
+        
+        logits = (100.0 * image @ self.text_features.T).float()
+        logits *= self.logit_scale
+        
+        return logits
 
         #######################
         # END OF YOUR CODE    #
@@ -370,9 +392,11 @@ def main():
     # - Before filling this part, you should first complete the ZeroShotCLIP class
     # - Updating the accuracy meter is as simple as calling top1.update(accuracy, batch_size)
     # - You can use the model_inference method of the ZeroshotCLIP class to get the logits
-
-    # you can remove the following line once you have implemented the inference loop
-    raise NotImplementedError("Implement the inference loop")
+    
+    for x,y in loader:
+        predicted = clipzs.model_inference(x.to(device))
+        accuracy = (predicted.argmax(dim=-1) == y.to(device)).float().mean()
+        top1.update(accuracy, args.batch_size)
 
     #######################
     # END OF YOUR CODE    #

@@ -64,6 +64,9 @@ def add_augmentation(augmentation_name, transform_list):
         case "test_noise":
             transformation = AddGaussianNoise()
 
+        case "horizontal_flip":
+            transformation = transforms.RandomHorizontalFlip(p=0.5)
+
     # Add the new transformation to the list.
     transform_list.append(transformation)
 
