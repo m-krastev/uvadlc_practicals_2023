@@ -194,7 +194,7 @@ def evaluate_model(model, data_loader, device):
 
 
 def main(
-    lr, batch_size, epochs, data_dir, seed, augmentation_name, test_noise, debug=True
+    lr, batch_size, epochs, data_dir, seed, augmentation_name, test_noise, debug=True,checkpoint_name="best_model.pth"
 ):
     """
     Main function for training and testing the model.
@@ -234,7 +234,7 @@ def main(
         batch_size,
         epochs,
         data_dir,
-        augmentation_name,
+        checkpoint_name,
         device,
         augmentation_name,
         debug,
@@ -287,6 +287,8 @@ if __name__ == "__main__":
         default=True,
         action="store_true",
     )
+    
+    parser.add_argument("--checkpoint_name", default="best_model.pth", type=str, help="Name of the checkpoint to save the best model on validation")
 
     args = parser.parse_args()
     kwargs = vars(args)
