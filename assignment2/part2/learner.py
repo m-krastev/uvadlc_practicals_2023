@@ -73,7 +73,12 @@ class Learner:
         # Note: You need to keep the visual/deep prompt's parameters trainable
         # Hint: Check for "prompt_learner" and "deep_prompt" in the parameters' names
 
-        raise NotImplementedError
+        for name, param in self.clip.named_parameters():
+            if "prompt_learner" in name or "deep_prompt" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -226,7 +231,15 @@ class Learner:
             # - Perform a backward pass
             # - Update the parameters
 
-            raise NotImplementedError
+            self.optimizer.zero_grad()
+            images, target = images.to(self.device), target.to(self.device)
+
+            output = self.clip(images)
+            loss = self.criterion(output, target)
+            
+            loss.backward()
+            self.optimizer.step()
+            
             #######################
             # END OF YOUR CODE    #
             #######################
@@ -291,7 +304,10 @@ class Learner:
                 # - Forward pass (using self.clip)
                 # - Compute the loss (using self.criterion)
 
-                raise NotImplementedError
+                images, target = images.to(self.device), target.to(self.device)
+                output = self.clip(images)
+                loss = self.criterion(output, target)
+
                 #######################
                 # END OF YOUR CODE    #
                 #######################

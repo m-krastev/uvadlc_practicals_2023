@@ -23,7 +23,7 @@ import torch.utils.data as data
 import torchvision.models as models
 from tqdm.auto import tqdm
 
-from cifar100_utils import add_augmentation, get_train_validation_set, get_test_set
+from cifar100_utils import get_train_validation_set, get_test_set
 
 
 def set_seed(seed):
@@ -322,7 +322,6 @@ if __name__ == "__main__":
     
     # # Evaluate the model on the test set
     # test_set = get_test_set(args.data_dir, args.test_noise)
-
     
     # test_loader = data.DataLoader(
     #     test_set, batch_size=args.batch_size, shuffle=False, num_workers=4
