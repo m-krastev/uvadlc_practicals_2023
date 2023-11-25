@@ -81,9 +81,13 @@ class VisualPromptCLIP(nn.Module):
         # Instructions:
         # - Given a list of prompts, compute the text features for each prompt.
         # - Return a tensor of shape (num_prompts, 512).
-
-        # remove this line once you implement the function
-        raise NotImplementedError("Write the code to compute text features.")
+        
+        with torch.no_grad():
+            text_inputs = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(
+                args.device
+            )
+            text_features = clip_model.encode_text(text_inputs)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
 
         #######################
         # END OF YOUR CODE    #
@@ -117,8 +121,12 @@ class VisualPromptCLIP(nn.Module):
         # - You need to multiply the similarity logits with the logit scale (clip_model.logit_scale).
         # - Return logits of shape (batch size, number of classes).
 
-        # remove this line once you implement the function
-        raise NotImplementedError("Implement the model_inference function.")
+        out = self.prompt_learner(image)
+        image_features = self.clip_model.encode_image(out)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        logits = self.logit_scale * image_features @ self.text_features.T
+        
+        return logits
 
         #######################
         # END OF YOUR CODE    #

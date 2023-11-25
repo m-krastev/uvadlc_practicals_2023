@@ -94,6 +94,12 @@ def parse_option():
         help="whether to visualize the predictions of the first batch",
     )
 
+    parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+    )
+
     args = parser.parse_args()
     args.device = (
         "cuda"
@@ -177,17 +183,16 @@ class ZeroshotCLIP(nn.Module):
         #   https://github.com/openai/CLIP#api
 
         # remove this line once you implement the function
-        
+
         # pip install git+https://github.com/openai/CLIP.git
-        features = []
-        for prompt in tqdm(prompts):
-            with torch.no_grad():
-                tokenized = clip.tokenize(prompt).to(device)
-                text_features = clip_model.encode_text(tokenized)
-                features.append(text_features)
-        
-        text_features = torch.cat(features)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        with torch.no_grad():
+            text_inputs = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(
+                device
+            )
+            text_features = clip_model.encode_text(text_inputs)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+
         return text_features
 
         #######################
@@ -225,13 +230,13 @@ class ZeroshotCLIP(nn.Module):
         # Hint:
         # - Read the CLIP API documentation for more details:
         #   https://github.com/openai/CLIP#api
+        with torch.no_grad():
+            image_features = self.clip_model.encode_image(image.to(self.device))
+            image_features /= image_features.norm(dim=-1, keepdim=True)
 
-        image = self.clip_model.encode_image(image.to(self.device))
-        image /= image.norm(dim=-1, keepdim=True)
-        
-        logits = (100.0 * image @ self.text_features.T).float()
-        logits *= self.logit_scale
-        
+            logits = (100.0 * image_features @ self.text_features.T).float()
+            logits *= self.logit_scale
+
         return logits
 
         #######################
@@ -392,11 +397,15 @@ def main():
     # - Before filling this part, you should first complete the ZeroShotCLIP class
     # - Updating the accuracy meter is as simple as calling top1.update(accuracy, batch_size)
     # - You can use the model_inference method of the ZeroshotCLIP class to get the logits
-    
-    for x,y in loader:
-        predicted = clipzs.model_inference(x.to(device))
-        accuracy = (predicted.argmax(dim=-1) == y.to(device)).float().mean()
-        top1.update(accuracy, args.batch_size)
+
+    # fake tqdm so that I don't spam my job output
+    tqdm = tqdm if args.debug else lambda x: x
+
+    for x, y in tqdm(loader):
+        x, y = x.to(device), y.to(device)
+        predicted = clipzs.model_inference(x)
+        accuracy = (predicted.argmax(dim=-1) == y).float().mean()
+        top1.update(accuracy, x.shape[0])
 
     #######################
     # END OF YOUR CODE    #

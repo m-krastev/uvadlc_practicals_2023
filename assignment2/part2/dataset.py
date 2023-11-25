@@ -40,7 +40,10 @@ class AddGaussianNoise(torch.nn.Module):
         # - Then, you can transform z s.t. it is sampled from N(self.mean, self.std)
         # - Finally, you can add the noise to the image.
 
-        raise NotImplementedError
+        z = torch.randn(img.shape) * self.std + self.mean
+        img = img + z
+        return img
+
         #######################
         # END OF YOUR CODE    #
         #######################
