@@ -23,7 +23,7 @@ import torch.utils.data as data
 import torchvision.models as models
 from tqdm.auto import tqdm
 
-from cifar100_utils import get_train_validation_set, get_test_set
+from cifar100_utils import get_train_validation_set, get_test_set, set_dataset
 
 
 def set_seed(seed):
@@ -269,43 +269,27 @@ if __name__ == "__main__":
 
     # Feel free to add more arguments or change the setup
 
-    parser.add_argument("--lr", default=0.001, type=float, help="Learning rate to use")
-    parser.add_argument("--batch_size", default=128, type=int, help="Minibatch size")
-    parser.add_argument("--epochs", default=30, type=int, help="Max number of epochs")
-    parser.add_argument(
-        "--seed", default=123, type=int, help="Seed to use for reproducing results"
-    )
-    parser.add_argument(
-        "--data_dir",
-        default="data/",
-        type=str,
-        help="Data directory where to store/find the CIFAR100 dataset.",
-    )
-    parser.add_argument(
-        "--augmentation_name", default=None, type=str, help="Augmentation to use."
-    )
-    parser.add_argument(
-
-        "--test_noise",
-        default=False,
-        action="store_true",
-        help="Whether to test the model on noisy images or not.",
-    )
-    parser.add_argument(
-        "--debug",
-        default=True,
-        action="store_true",
-    )
-
-    parser.add_argument(
-        "--checkpoint_name",
-        default="best_model.pth",
-        type=str,
-        help="Name of the checkpoint to save the best model on validation",
-    )
+    parser.add_argument('--lr', default=0.001, type=float,
+                        help='Learning rate to use')
+    parser.add_argument('--batch_size', default=128, type=int,
+                        help='Minibatch size')
+    parser.add_argument('--epochs', default=30, type=int,
+                        help='Max number of epochs')
+    parser.add_argument('--seed', default=123, type=int,
+                        help='Seed to use for reproducing results')
+    parser.add_argument('--data_dir', default='data/', type=str,
+                        help='Data directory where to store/find the CIFAR100 dataset.')
+    parser.add_argument('--dataset', default='cifar100', type=str, choices=['cifar100', 'cifar10'],
+                        help='Dataset to use.')
+    parser.add_argument('--augmentation_name', default=None, type=str,
+                        help='Augmentation to use.')
+    parser.add_argument('--test_noise', default=False, action="store_true",
+                        help='Whether to test the model on noisy images or not.')
+    parser.add_argument('--debug', default=False, action="store_true",)
 
     args = parser.parse_args()
     kwargs = vars(args)
+    set_dataset(kwargs.pop('dataset'))
 
     if args.debug:
         import time

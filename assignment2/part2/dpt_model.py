@@ -83,10 +83,18 @@ class DeepPromptCLIP(nn.Module):
 
         # TODO: Initialize the learnable deep prompt.
         # Hint: consider the shape required for the deep prompt to be compatible with the CLIP model
+        # Hint: CLIP uses different datatypes for CPU (float32) and GPU (float16)
+        # Hint: use args.prompt_num to specify the number of deep prompts to use
 
         # [flattened_patches,batch_size, embedding_size]
         # [50, 128, 768]
-        self.deep_prompt = torch.nn.Parameter(torch.randn((1,1,self.clip_model.visual.conv1.out_channels),dtype=self.clip_model.dtype,device=self.clip_model.device))
+        self.deep_prompt = torch.nn.Parameter(
+            torch.randn(
+                (1, 1, self.clip_model.visual.conv1.out_channels),
+                dtype=self.clip_model.dtype,
+                device=self.clip_model.device,
+            )
+        )
 
         #######################
         # END OF YOUR CODE    #
@@ -158,8 +166,8 @@ class DeepPromptCLIP(nn.Module):
         # - Inject the deep prompt at the specified layer (self.injection_layer).
 
         for i, block in enumerate(image_encoder.transformer.resblocks):
-            if i == self.injection_layer:            
-                x = torch.cat([self.deep_prompt.repeat(1,x.shape[1],1),x])
+            if i == self.injection_layer:
+                x = torch.cat([self.deep_prompt.repeat(1, x.shape[1], 1), x])
             x = block(x)
 
         #######################
