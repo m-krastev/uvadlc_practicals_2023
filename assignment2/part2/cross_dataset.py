@@ -67,9 +67,24 @@ def parse_option():
         ],
         help="choose visual prompting method",
     )
-    parser.add_argument("--prompt_type", type=str, default="visual_prompt", help="what type of prompt to use")
-    parser.add_argument("--prompt_num", type=int, default=4, help="number of learnable deep prompts to use")
-    parser.add_argument("--injection_layer", type=int, default=0, help="id of transformer layer to inject prompt into")
+    parser.add_argument(
+        "--prompt_type",
+        type=str,
+        default="visual_prompt",
+        help="what type of prompt to use",
+    )
+    parser.add_argument(
+        "--prompt_num",
+        type=int,
+        default=4,
+        help="number of learnable deep prompts to use",
+    )
+    parser.add_argument(
+        "--injection_layer",
+        type=int,
+        default=0,
+        help="id of transformer layer to inject prompt into",
+    )
     parser.add_argument(
         "--prompt_size", type=int, default=30, help="size for visual prompts"
     )
@@ -119,24 +134,35 @@ def parse_option():
         "--use_wandb", default=False, action="store_true", help="whether to use wandb"
     )
 
+    parser.add_argument(
+        "--resume_from_best", action="store_true", help="resume from best checkpoint"
+    )
+
     args = parser.parse_args()
 
-    args.filename = "{}_{}_{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_warmup_{}_trial_{}".format(
-        args.method,
-        args.prompt_size,
-        args.dataset,
-        args.model,
-        args.arch,
-        args.optim,
-        args.learning_rate,
-        args.weight_decay,
-        args.batch_size,
-        args.warmup,
-        args.trial,
+    if args.prompt_type == "deep_prompt":
+        args.method = None
+    args.filename = (
+        "{}_{}_{}_{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_warmup_{}_trial_{}".format(
+            args.prompt_type,
+            args.method or args.injection_layer,
+            args.prompt_size if args.method else args.prompt_num,
+            args.dataset,
+            args.model,
+            args.arch,
+            args.optim,
+            args.learning_rate,
+            args.weight_decay,
+            args.batch_size,
+            args.warmup,
+            args.trial,
+        )
     )
 
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
     args.model_folder = os.path.join(args.model_dir, args.filename)
+    if args.resume_from_best:
+        args.resume = os.path.join(args.model_folder, "model_best.pth.tar")
     if not os.path.isdir(args.model_folder):
         os.makedirs(args.model_folder)
 
@@ -155,7 +181,6 @@ def main():
     learn = Learner(args)
 
     if args.evaluate:
-
         # Load clip image transformation
         _, preprocess = clip.load(args.arch)
 
@@ -179,7 +204,7 @@ def main():
         #######################
 
         classnames = cifar10_test.classes + cifar100_test.classes
-        
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -205,7 +230,9 @@ def main():
         
         clip_model.eval()
         with torch.no_grad():
-            text_features = clip_model.encode_text(prompts)
+            text_features = clip_model.encode_text(
+                torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(args.device)
+            )
             text_features /= text_features.norm(dim=-1, keepdim=True)
 
         #######################
@@ -219,7 +246,7 @@ def main():
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        
+
         cifar100_test.targets = [x + 10 for x in cifar100_test.targets]
 
         #######################
@@ -248,14 +275,18 @@ def main():
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        
-        accuracy_all = acc_cifar10 * (len(cifar10_test) / (len(cifar10_test) + len(cifar100_test))) + acc_cifar100 * (len(cifar100_test) / (len(cifar10_test) + len(cifar100_test)))
+
+        accuracy_all = acc_cifar10 * (
+            len(cifar10_test) / (len(cifar10_test) + len(cifar100_test))
+        ) + acc_cifar100 * (
+            len(cifar100_test) / (len(cifar10_test) + len(cifar100_test))
+        )
 
         #######################
         # END OF YOUR CODE    #
         #######################
 
-        print(f"TOP1 Accuracy on cifra10 + cifar100 is: {accuracy_all}")
+        print(f"TOP1 Accuracy on cifar10 + cifar100 is: {accuracy_all}")
         exit()
     else:
         raise ValueError("Enable flag --evaluate!")

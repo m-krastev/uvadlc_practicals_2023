@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#SBATCH --partition=gpu_mig
+#SBATCH --partition=gpu
 #SBATCH --gpus=1
 
-#SBATCH --job-name=ass2.2
+#SBATCH --job-name=ass2.2-2.3
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --time=11:59:00
@@ -34,7 +34,7 @@ text_prompt_template="This is a photo of a {}"
 epochs=20
 
 ## Set of experiments on CIFAR-10
-dataset="cifar10"
+# dataset="cifar10"
 root=$TMP_DIR
 mkdir -p $root
 
@@ -44,37 +44,41 @@ datasets=(cifar10 cifar100)
 methods=(fixed_patch padding)
 prompt_sizes=(1 30)
 
-# for dataset in "${datasets[@]}"; do
-
-#     cp -r $WORK_DIR/data/ $TMP_DIR/
-
-#     for i in "${!methods[@]}"; do
-#         method=${methods[$i]}
-#         prompt_size=${prompt_sizes[$i]}
-#         echo -e "Running experiment on $dataset with $method and prompt size $prompt_size\n"
-#         python $code_dir/main.py \
-#             --dataset $dataset \
-#             --arch $arch \
-#             --text_prompt_template "$text_prompt_template" \
-#             --epochs $epochs \
-#             --method $method \
-#             --prompt_size $prompt_size \
-#             --root $root
-#     done
-# done
-
 for dataset in "${datasets[@]}"; do
 
-    cp -r $WORK_DIR/data/ $TMP_DIR/
+    for i in "${!methods[@]}"; do
+        cp -r $WORK_DIR/data/ $TMP_DIR/
+        method=${methods[$i]}
+        prompt_size=${prompt_sizes[$i]}
+        echo -e "Running experiment on $dataset with $method and prompt size $prompt_size\n"
+        python $code_dir/main.py \
+            --dataset $dataset \
+            --arch $arch \
+            --text_prompt_template "$text_prompt_template" \
+            --epochs $epochs \
+            --method $method \
+            --prompt_size $prompt_size \
+            --root $root\
+            --print_freq 100
+    done
+done
 
-    echo -e "Running experiment on $dataset with "deep_prompt" and prompt size $prompt_size \n"
-    python $code_dir/main.py \
-        --dataset $dataset \
-        --arch $arch \
-        --text_prompt_template "$text_prompt_template" \
-        --epochs $epochs \
-        --prompt_type deep_prompt \
-        --root $root
+injectionl=(0 5)
+for dataset in "${datasets[@]}"; do
+
+    for inj in "${injectionl[@]}"; do
+        cp -r $WORK_DIR/data/ $TMP_DIR/
+
+        echo -e "Running experiment on $dataset with "deep_prompt" and injection layer $inj \n"
+        python $code_dir/main.py \
+            --dataset $dataset \
+            --arch $arch \
+            --text_prompt_template "$text_prompt_template" \
+            --epochs $epochs \
+            --injection_layer $inj \
+            --prompt_type deep_prompt \
+            --print_freq 100 \
+            --root $root
     done
 done
 

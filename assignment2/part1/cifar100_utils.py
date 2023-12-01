@@ -78,11 +78,14 @@ def add_augmentation(augmentation_name, transform_list):
 
     # Create a new transformation based on the augmentation_name.
     match augmentation_name:
-        case "test_noise":
-            transformation = AddGaussianNoise()
+        case "gaussian_noise":
+            transformation = AddGaussianNoise(always_apply=False)
 
         case "horizontal_flip":
             transformation = transforms.RandomHorizontalFlip(p=0.5)
+
+        case "test_noise":
+            transformation = AddGaussianNoise(always_apply=True)
 
     # Add the new transformation to the list.
     transform_list.append(transformation)

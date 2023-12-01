@@ -233,9 +233,7 @@ class ZeroshotCLIP(nn.Module):
         with torch.no_grad():
             image_features = self.clip_model.encode_image(image.to(self.device))
             image_features /= image_features.norm(dim=-1, keepdim=True)
-
-            logits = (100.0 * image_features @ self.text_features.T).float()
-            logits *= self.logit_scale
+            logits = self.logit_scale * image_features @ self.text_features.T
 
         return logits
 

@@ -15,6 +15,7 @@
 ################################################################################
 
 import argparse
+from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
@@ -167,6 +168,7 @@ def evaluate_model(model, data_loader, device):
     # PUT YOUR CODE HERE  #
     #######################
     # Set model to evaluation mode (Remember to set it back to training mode in the training loop)
+    model.to(device)
     model.eval()
 
     # Loop over the dataset and compute the accuracy. Return the accuracy
@@ -203,6 +205,7 @@ def main(
     test_noise,
     debug=True,
     checkpoint_name="best_model.pth",
+    dataset = "cifar100",
 ):
     """
     Main function for training and testing the model.
@@ -231,7 +234,7 @@ def main(
     )
 
     # Load the model
-    model = get_model()
+    model = get_model(10 if dataset == "cifar10" else 100)
 
     # Get the augmentation to use ?? what do you expect me to do
 
@@ -269,55 +272,82 @@ if __name__ == "__main__":
 
     # Feel free to add more arguments or change the setup
 
-    parser.add_argument('--lr', default=0.001, type=float,
-                        help='Learning rate to use')
-    parser.add_argument('--batch_size', default=128, type=int,
-                        help='Minibatch size')
-    parser.add_argument('--epochs', default=30, type=int,
-                        help='Max number of epochs')
-    parser.add_argument('--seed', default=123, type=int,
-                        help='Seed to use for reproducing results')
-    parser.add_argument('--data_dir', default='data/', type=str,
-                        help='Data directory where to store/find the CIFAR100 dataset.')
-    parser.add_argument('--dataset', default='cifar100', type=str, choices=['cifar100', 'cifar10'],
-                        help='Dataset to use.')
-    parser.add_argument('--augmentation_name', default=None, type=str,
-                        help='Augmentation to use.')
-    parser.add_argument('--test_noise', default=False, action="store_true",
-                        help='Whether to test the model on noisy images or not.')
-    parser.add_argument('--debug', default=False, action="store_true",)
+    parser.add_argument("--lr", default=0.001, type=float, help="Learning rate to use")
+    parser.add_argument("--batch_size", default=128, type=int, help="Minibatch size")
+    parser.add_argument("--epochs", default=30, type=int, help="Max number of epochs")
+    parser.add_argument(
+        "--seed", default=123, type=int, help="Seed to use for reproducing results"
+    )
+    parser.add_argument(
+        "--data_dir",
+        default="data/",
+        type=str,
+        help="Data directory where to store/find the CIFAR100 dataset.",
+    )
+    parser.add_argument(
+        "--dataset",
+        default="cifar100",
+        type=str,
+        choices=["cifar100", "cifar10"],
+        help="Dataset to use.",
+    )
+    parser.add_argument(
+        "--augmentation_name", default=None, type=str, help="Augmentation to use."
+    )
+    parser.add_argument(
+        "--test_noise",
+        default=False,
+        action="store_true",
+        help="Whether to test the model on noisy images or not.",
+    )
+    parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+    )
+    
+    parser.add_argument(
+        "--eval",
+        default=False,
+        action="store_true",
+    )
 
     args = parser.parse_args()
-    kwargs = vars(args)
-    set_dataset(kwargs.pop('dataset'))
+    args.checkpoint_name = f"save/models/finetuning_{args.dataset}_resnet18/{args.augmentation_name}_{args.lr}_{args.batch_size}_{args.seed}/best_model.pth.tar"
+    Path(args.checkpoint_name).parent.mkdir(parents=True, exist_ok=True)
+    
+    set_dataset(args.dataset)
+    print(args)
 
+    kwargs = vars(args)
+    
+    if args.eval:
+        model = get_model(10 if args.dataset == "cifar10" else 100)
+        model.load_state_dict(torch.load(args.checkpoint_name))
+        model.eval()
+        test_set = get_test_set(args.data_dir, args.test_noise)
+        test_loader = data.DataLoader(
+            test_set, batch_size=args.batch_size, shuffle=False, num_workers=4
+        )
+        device = torch.device(
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
+        test_accuracy = evaluate_model(model, test_loader, device)
+        print(f"Test accuracy: {test_accuracy}")
+        exit(0)
+    
     if args.debug:
         import time
+
         start = time.time()
-    
+
     main(**kwargs)
 
     if args.debug:
         print(f"Total time: {(time.time() - start)/60:.3f} min.")
-    
+
     # Test accuracy: 0.5877000093460083
-
-    # device = 'mps'
-    
-    # # Evaluate the model on the test set
-    # test_set = get_test_set(args.data_dir, args.test_noise)
-    
-    # test_loader = data.DataLoader(
-    #     test_set, batch_size=args.batch_size, shuffle=False, num_workers=4
-    # )
-    
-    # model = get_model()
-    
-    # model.load_state_dict(torch.load(args.checkpoint_name, map_location=device))
-    
-    # model.to(device)
-    
-    # test_accuracy = evaluate_model(model, test_loader, device)
-
-    # if args.debug:
-    #     print(f"Test accuracy: {test_accuracy}")

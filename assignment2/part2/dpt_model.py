@@ -90,9 +90,9 @@ class DeepPromptCLIP(nn.Module):
         # [50, 128, 768]
         self.deep_prompt = torch.nn.Parameter(
             torch.randn(
-                (1, 1, self.clip_model.visual.conv1.out_channels),
+                (args.prompt_num, 1, self.clip_model.visual.conv1.out_channels),
                 dtype=self.clip_model.dtype,
-                device=self.clip_model.device,
+                device=args.device,
             )
         )
 

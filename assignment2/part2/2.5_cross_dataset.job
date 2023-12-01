@@ -1,0 +1,85 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
+
+#SBATCH --job-name=ass2.4
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --time=00:59:00
+#SBATCH --mem=60000M
+#SBATCH --output=/home/scur1382/uvadlc_practicals_2023/%A.out
+
+date
+
+export TMP_DIR="/scratch-local/scur1382"
+
+module purge
+module load 2022
+module load Anaconda3/2022.05
+
+# Your job starts in the directory where you call sbatch
+WORK_DIR=$HOME/uvadlc_practicals_2023
+cd $WORK_DIR
+
+# Activate your environment
+source activate dl2023
+
+# Run 1: Visual prompting CLIP on CIFAR-10 with standard text prompt
+code_dir=$WORK_DIR/assignment2/part2
+
+# Standard constants
+arch="ViT-B/32"
+text_prompt_template="This is a photo of a {}"
+epochs=20
+
+## Set of experiments on CIFAR-10
+dataset="cifar10"
+root=$TMP_DIR
+mkdir -p $root
+
+cp -r $WORK_DIR/data/ $TMP_DIR/
+
+dataset=cifar100
+methods=(fixed_patch padding)
+prompt_sizes=(1 30)
+
+
+for i in "${!methods[@]}"; do
+    method=${methods[$i]}
+    prompt_size=${prompt_sizes[$i]}
+    
+    cp -r $WORK_DIR/data/ $TMP_DIR/
+    python $code_dir/cross_dataset.py \
+        --dataset $dataset \
+        --arch $arch \
+        --text_prompt_template "$text_prompt_template" \
+        --epochs $epochs \
+        --method $method \
+        --prompt_size $prompt_size \
+        --root $root \
+        --resume_from_best \
+        --test_noise \
+        --evaluate
+    
+    echo -e "^CROSSDATASET on $dataset: method=$method ; prompt size=$prompt_size\n"
+done
+
+
+injectionl=(0 5)
+for inj in "${injectionl[@]}"; do
+    cp -r $WORK_DIR/data/ $TMP_DIR/
+
+    python $code_dir/cross_dataset.py \
+        --dataset $dataset \
+        --arch $arch \
+        --text_prompt_template "$text_prompt_template" \
+        --epochs $epochs \
+        --injection_layer $inj \
+        --prompt_type deep_prompt \
+        --root $root \
+        --resume_from_best \
+        --evaluate
+
+    echo -e "^CROSSDATASET on $dataset: method=deep_prompt ; injection_layer=$inj\n"
+done

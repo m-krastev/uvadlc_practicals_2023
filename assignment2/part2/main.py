@@ -52,9 +52,24 @@ def parse_option():
     # model
     parser.add_argument("--model", type=str, default="clip")
     parser.add_argument("--arch", type=str, default="ViT-B/32")
-    parser.add_argument("--prompt_type", type=str, choices=["visual_prompt", "deep_prompt"], default="visual_prompt")
-    parser.add_argument("--prompt_num", type=int, default=4, help="number of learnable deep prompts to use")
-    parser.add_argument("--injection_layer", type=int, default=0, help="id of transformer layer to inject prompt into")
+    parser.add_argument(
+        "--prompt_type",
+        type=str,
+        choices=["visual_prompt", "deep_prompt"],
+        default="visual_prompt",
+    )
+    parser.add_argument(
+        "--prompt_num",
+        type=int,
+        default=4,
+        help="number of learnable deep prompts to use",
+    )
+    parser.add_argument(
+        "--injection_layer",
+        type=int,
+        default=0,
+        help="id of transformer layer to inject prompt into",
+    )
     parser.add_argument(
         "--method",
         type=str,
@@ -70,7 +85,9 @@ def parse_option():
         "--prompt_size", type=int, default=30, help="size for visual prompts"
     )
     parser.add_argument(
-        "--text_prompt_template", type=str, default="This is a photo of a {}",
+        "--text_prompt_template",
+        type=str,
+        default="This is a photo of a {}",
     )
     parser.add_argument(
         "--visualize_prompt",
@@ -83,7 +100,9 @@ def parse_option():
     parser.add_argument("--dataset", type=str, default="cifar100", help="dataset")
     parser.add_argument("--image_size", type=int, default=224, help="image size")
     parser.add_argument(
-        "--test_noise", default=False, action="store_true",
+        "--test_noise",
+        default=False,
+        action="store_true",
         help="whether to add noise to the test images",
     )
 
@@ -103,6 +122,9 @@ def parse_option():
         "--resume", type=str, default=None, help="path to resume from checkpoint"
     )
     parser.add_argument(
+        "--resume_from_best", action="store_true", help="resume from best checkpoint"
+    )
+    parser.add_argument(
         "--evaluate", default=False, action="store_true", help="evaluate model test set"
     )
     parser.add_argument("--gpu", type=int, default=None, help="gpu to use")
@@ -114,22 +136,29 @@ def parse_option():
 
     args.num_workers = min(args.num_workers, os.cpu_count())
 
-    args.filename = "{}_{}_{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_warmup_{}_trial_{}".format(
-        args.method,
-        args.prompt_size,
-        args.dataset,
-        args.model,
-        args.arch,
-        args.optim,
-        args.learning_rate,
-        args.weight_decay,
-        args.batch_size,
-        args.warmup,
-        args.trial,
+    if args.prompt_type == "deep_prompt":
+        args.method = None
+    args.filename = (
+        "{}_{}_{}_{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_warmup_{}_trial_{}".format(
+            args.prompt_type,
+            args.method or args.injection_layer,
+            args.prompt_size if args.method else args.prompt_num,
+            args.dataset,
+            args.model,
+            args.arch,
+            args.optim,
+            args.learning_rate,
+            args.weight_decay,
+            args.batch_size,
+            args.warmup,
+            args.trial,
+        )
     )
 
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
     args.model_folder = os.path.join(args.model_dir, args.filename)
+    if args.resume_from_best:
+        args.resume = os.path.join(args.model_folder, "model_best.pth.tar")
     if not os.path.isdir(args.model_folder):
         os.makedirs(args.model_folder)
 
