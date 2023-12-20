@@ -14,6 +14,7 @@
 # Date Created: 2022-11-25
 ################################################################################
 
+from math import prod
 import torch
 from torchvision.utils import make_grid
 import numpy as np
@@ -30,13 +31,14 @@ def sample_reparameterize(mean, std):
         z - A sample of the distributions, with gradient support for both mean and std.
             The tensor should have the same shape as the mean and std input tensors.
     """
-    assert not (std < 0).any().item(), "The reparameterization trick got a negative std as input. " + \
-                                       "Are you sure your input is std and not log_std?"
+    assert not (std < 0).any().item(), (
+        "The reparameterization trick got a negative std as input. "
+        + "Are you sure your input is std and not log_std?"
+    )
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    z = None
-    raise NotImplementedError
+    z = torch.randn(mean.shape, device=mean.device) * std + mean
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -58,8 +60,9 @@ def KLD(mean, log_std):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    KLD = None
-    raise NotImplementedError
+    KLD = (
+        0.5 * torch.sum((2 * log_std).exp() + torch.square(mean) - 1 - 2 * log_std, axis=-1)
+    )
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -78,8 +81,8 @@ def elbo_to_bpd(elbo, img_shape):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    bpd = None
-    raise NotImplementedError
+    log2e = 1.4426950408889634
+    bpd = elbo * log2e / prod(img_shape[1:])
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -110,11 +113,34 @@ def visualize_manifold(decoder, grid_size=20):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    img_grid = None
-    raise NotImplementedError
+
+    z_values = torch.linspace(
+        0.5 / grid_size, (grid_size - 0.5) / grid_size, grid_size, device=decoder.device
+    )
+    img_grid = torch.stack(torch.meshgrid(z_values, z_values), dim=-1).reshape(-1, 2)
+
+    img_grid = torch.distributions.Normal(0, 1).icdf(img_grid).to(decoder.device)
+
+    img_grid = decoder(img_grid)
+    
+    
+    # reshape the tensor
+    B,C,H,W = img_grid.shape
+    img_grid = img_grid.transpose(1,-1)
+    img_grid = img_grid.view(-1, C)
+    img_grid = torch.softmax(img_grid, dim=-1)
+    
+    # sample from the multinomial distribution
+    img_grid = torch.multinomial(img_grid, 1, replacement=True)
+    
+    # reshape back to the original shape
+    img_grid = img_grid.view(B, 1, H,W)
+    
+    # img_grid = img_grid.argmax(dim=1, keepdim=True).float()
+    img_grid = make_grid(img_grid, nrow=grid_size)
+
     #######################
     # END OF YOUR CODE    #
     #######################
 
     return img_grid
-

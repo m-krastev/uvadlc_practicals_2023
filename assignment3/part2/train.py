@@ -15,6 +15,7 @@
 ################################################################################
 
 import argparse
+from itertools import chain
 import os
 import datetime
 import json
@@ -43,13 +44,20 @@ def generate_and_save(model, epoch, summary_writer, batch_size=64):
         batch_size - Number of images to generate/sample
     """
     samples = model.sample(batch_size)
-    grid = make_grid(samples, nrow=8, normalize=True,
-                     value_range=(-1, 1), pad_value=0.5)
+    grid = make_grid(
+        samples, nrow=8, normalize=True, value_range=(-1, 1), pad_value=0.5
+    )
     grid = grid.detach().cpu()
     summary_writer.add_image("samples", grid, global_step=epoch)
-    save_image(grid,
-               os.path.join(summary_writer.log_dir, 'results/',
-                            'Prior_samples/', "samples_epoch_{}.png".format(epoch)))
+    save_image(
+        grid,
+        os.path.join(
+            summary_writer.log_dir,
+            "results/",
+            "Prior_samples/",
+            "samples_epoch_{}.png".format(epoch),
+        ),
+    )
 
 
 def save_reconstruction(model, epoch, summary_writer, data):
@@ -65,21 +73,33 @@ def save_reconstruction(model, epoch, summary_writer, data):
     """
     recon_batch, _ = model(data)
     n = min(data.size(0), 8)
-    comparison = torch.cat([data[:n],
-                            recon_batch.view(data.size(0), 1, 28, 28)[:n]])
-    grid = make_grid(comparison, nrow=8, normalize=True,
-                     value_range=(-1, 1), pad_value=0.5)
+    comparison = torch.cat([data[:n], recon_batch.view(data.size(0), 1, 28, 28)[:n]])
+    grid = make_grid(
+        comparison, nrow=8, normalize=True, value_range=(-1, 1), pad_value=0.5
+    )
     grid = grid.detach().cpu()
     summary_writer.add_image("reconstructions", grid, global_step=epoch)
-    save_image(comparison.data.cpu(),
-               os.path.join(summary_writer.log_dir, 'results/',
-                            'Reconstruction/', 'reconstruction_{}.png'.format(epoch)))
+    save_image(
+        comparison.data.cpu(),
+        os.path.join(
+            summary_writer.log_dir,
+            "results/",
+            "Reconstruction/",
+            "reconstruction_{}.png".format(epoch),
+        ),
+    )
 
 
-def train_aae(epoch, model, train_loader,
-              logger_ae, logger_disc,
-              optimizer_ae, optimizer_disc,
-              lambda_=1):
+def train_aae(
+    epoch,
+    model: AdversarialAE,
+    train_loader,
+    logger_ae,
+    logger_disc,
+    optimizer_ae,
+    optimizer_disc,
+    lambda_=1,
+):
     """
     Function for training an Adversarial Autoencoder model on a dataset for a single epoch.
     Inputs:
@@ -101,7 +121,16 @@ def train_aae(epoch, model, train_loader,
         # PUT YOUR CODE HERE  #
         #######################
         # Encoder-Decoder update
-        raise NotImplementedError
+
+        optimizer_ae.zero_grad()
+        
+        recon_x, z_fake = model(x)
+        ae_loss, logging_dict = model.get_loss_autoencoder(x, recon_x, z_fake, lambda_)
+        logger_ae.add_values(logging_dict)
+
+        ae_loss.backward()
+        optimizer_ae.step()
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -110,7 +139,17 @@ def train_aae(epoch, model, train_loader,
         # PUT YOUR CODE HERE  #
         #######################
         # Discriminator update
-        raise NotImplementedError
+        optimizer_disc.zero_grad()
+        
+        disc_loss, logging_dict_2 = model.get_loss_discriminator(
+            z_fake.detach()
+        )
+
+        disc_loss.backward()
+        optimizer_disc.step()
+
+        logger_disc.add_values(logging_dict_2)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -118,7 +157,11 @@ def train_aae(epoch, model, train_loader,
 
         if (epoch <= 1 or epoch % 5 == 0) and batch_idx == 0:
             save_reconstruction(model, epoch, logger_ae.summary_writer, x)
-    print('====> Epoch {} : Average loss: {:.4f}'.format(epoch, train_loss / len(train_loader)))
+    print(
+        "====> Epoch {} : Average loss: {:.4f}".format(
+            epoch, train_loss / len(train_loader)
+        )
+    )
 
 
 def main(args):
@@ -136,11 +179,13 @@ def main(args):
         torch.backends.cudnn.benchmark = False
 
     # Preparation of logging directories
-    experiment_dir = os.path.join(args.log_dir, datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
-    checkpoint_dir = os.path.join(experiment_dir, 'checkpoints')
-    results_dir = os.path.join(experiment_dir, 'results')
-    sample_dir = os.path.join(results_dir, 'Prior_samples')
-    recon_dir = os.path.join(results_dir, 'Reconstruction')
+    experiment_dir = os.path.join(
+        args.log_dir, datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    )
+    checkpoint_dir = os.path.join(experiment_dir, "checkpoints")
+    results_dir = os.path.join(experiment_dir, "results")
+    sample_dir = os.path.join(results_dir, "Prior_samples")
+    recon_dir = os.path.join(results_dir, "Reconstruction")
 
     os.makedirs(experiment_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -148,12 +193,12 @@ def main(args):
     os.makedirs(sample_dir, exist_ok=True)
     os.makedirs(recon_dir, exist_ok=True)
 
-    with open(os.path.join(experiment_dir, 'hparams.json'), 'w') as f:
+    with open(os.path.join(experiment_dir, "hparams.json"), "w") as f:
         json.dump(vars(args), f, indent=4)
 
-    train_loader = mnist(root=args.data_dir,
-                         batch_size=args.batch_size,
-                         num_workers=args.num_workers)
+    train_loader = mnist(
+        root=args.data_dir, batch_size=args.batch_size, num_workers=args.num_workers
+    )
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda:0" if args.cuda else "cpu")
@@ -168,9 +213,12 @@ def main(args):
     #######################
     # You can use the Adam optimizer for autoencoder and SGD for discriminator.
     # It is recommended to reduce the momentum (beta1) to e.g. 0.5 for Adam optimizer.
-    optimizer_ae = None
-    optimizer_disc = None
-    raise NotImplementedError
+    optimizer_ae = optim.Adam(
+        chain(model.encoder.parameters(), model.decoder.parameters()),
+        lr=args.ae_lr,
+        betas=(0.5, 0.999),
+    )
+    optimizer_disc = optim.SGD(model.discriminator.parameters(), lr=args.d_lr)
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -188,10 +236,16 @@ def main(args):
     print(f"Using device {device}")
     for epoch in range(args.epochs):
         # Training epoch
-        train_aae(epoch, model, train_loader,
-                  logger_ae, logger_disc,
-                  optimizer_ae, optimizer_disc,
-                  lambda_=args.lambda_)
+        train_aae(
+            epoch,
+            model,
+            train_loader,
+            logger_ae,
+            logger_disc,
+            optimizer_ae,
+            optimizer_disc,
+            lambda_=args.lambda_,
+        )
 
         # Logging images
         if epoch == 0 or (epoch + 1) % 5 == 0:
@@ -201,43 +255,66 @@ def main(args):
         # As we do not have a validation step, we cannot determine the "best"
         # checkpoint during training except looking at the samples.
         if (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(),
-                       os.path.join(checkpoint_dir, "model_checkpoint.pt"))
+            torch.save(
+                model.state_dict(), os.path.join(checkpoint_dir, "model_checkpoint.pt")
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
 
     # Model hyper-parameters
-    parser.add_argument('--z_dim', default=8, type=int,
-                        help='Dimensionality of latent code space')
+    parser.add_argument(
+        "--z_dim", default=8, type=int, help="Dimensionality of latent code space"
+    )
 
     # Optimizer hyper-parameters
-    parser.add_argument('--batch_size', default=64, type=int,
-                        help='Batch size to use for training')
-    parser.add_argument('--lambda_', type=float, default=0.995,
-                        help='Reconstruction and adversarial mixing coefficient')
-    parser.add_argument('--ae_lr', type=float, default=1e-3,
-                        help='Autoencoder learning rate')
-    parser.add_argument('--d_lr', type=float, default=5e-3,
-                        help='Generator learning rate')
+    parser.add_argument(
+        "--batch_size", default=64, type=int, help="Batch size to use for training"
+    )
+    parser.add_argument(
+        "--lambda_",
+        type=float,
+        default=0.995,
+        help="Reconstruction and adversarial mixing coefficient",
+    )
+    parser.add_argument(
+        "--ae_lr", type=float, default=1e-3, help="Autoencoder learning rate"
+    )
+    parser.add_argument(
+        "--d_lr", type=float, default=5e-3, help="Generator learning rate"
+    )
 
     # Other hyper-parameters
-    parser.add_argument('--data_dir', default='../data/', type=str,
-                        help='Directory where to look for the data. For jobs on Lisa, this should be $TMPDIR.')
-    parser.add_argument('--epochs', default=100, type=int,
-                        help='Number of epochs to train.')
-    parser.add_argument('--seed', default=42, type=int,
-                        help='Seed to use for reproducing results')
-    parser.add_argument('--num_workers', default=4, type=int,
-                        help='Number of workers to use in the data loaders.' +
-                             'To have a truly deterministic run, this has to be 0.')
-    parser.add_argument('--log_dir', default='AAE_logs/', type=str,
-                        help='Directory where the PyTorch Lightning logs ' +
-                             'should be created.')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA training')
+    parser.add_argument(
+        "--data_dir",
+        default="../data/",
+        type=str,
+        help="Directory where to look for the data. For jobs on Lisa, this should be $TMPDIR.",
+    )
+    parser.add_argument(
+        "--epochs", default=100, type=int, help="Number of epochs to train."
+    )
+    parser.add_argument(
+        "--seed", default=42, type=int, help="Seed to use for reproducing results"
+    )
+    parser.add_argument(
+        "--num_workers",
+        default=4,
+        type=int,
+        help="Number of workers to use in the data loaders."
+        + "To have a truly deterministic run, this has to be 0.",
+    )
+    parser.add_argument(
+        "--log_dir",
+        default="AAE_logs/",
+        type=str,
+        help="Directory where the PyTorch Lightning logs " + "should be created.",
+    )
+    parser.add_argument(
+        "--no-cuda", action="store_true", default=False, help="disables CUDA training"
+    )
 
     args = parser.parse_args()
     main(args)

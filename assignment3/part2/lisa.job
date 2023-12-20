@@ -6,9 +6,9 @@
 #SBATCH --gpus=1
 #SBATCH --job-name=TrainAAE
 #SBATCH --ntasks=1
-#SBATCH --time=01:00:00
+#SBATCH --time=00:59:00
 #SBATCH --mem=32000M
-#SBATCH --output=slurm_output_%A.out
+#SBATCH --output=%A.out
 
 module purge
 module load 2022
@@ -17,4 +17,25 @@ module load Anaconda3/2022.05
 # Activate your environment
 source activate dl2023
 # Run your code
-srun python -u train.py --data_dir $TMPDIR/
+
+export TMPDIR="/scratch-local/scur1382"
+WORKDIR=$HOME/uvadlc_practicals_2023
+cd $WORKDIR
+
+# 2.4
+python assignment3/part2/train.py --data_dir $TMPDIR/ --z_dim 8 --lambda_ 1
+
+# 2.5
+python assignment3/part2/train.py --data_dir $TMPDIR/ --z_dim 8 --lambda_ 0.995
+
+# 2.6 a)
+python assignment3/part2/train.py --data_dir $TMPDIR/ --z_dim 2 --lambda_ 1
+
+# 2.6 b)
+python assignment3/part2/train.py --data_dir $TMPDIR/ --z_dim 2 --lambda_ 0.995
+
+# 2.7
+python assignment3/part2/train.py --data_dir $TMPDIR/ --z_dim 20 --lambda_ 0.995
+
+# Run part3 as well
+python assignment3/part3/train.py --txt_file assignment3/part3/assets/book_NL_tolstoy_anna_karenina.txt --progress_bar --epochs 2

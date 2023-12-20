@@ -34,7 +34,31 @@ class ConvEncoder(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+
+        num_input_channels = 1
+        c_hid = 32
+        self.z_dim = z_dim
+
+        self.net = nn.Sequential(
+            nn.Conv2d(
+                num_input_channels, c_hid, kernel_size=3, padding=3, stride=2
+            ),  # 28x28 => 16x16
+            nn.ReLU(),
+            nn.Conv2d(c_hid, c_hid, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(
+                c_hid, 2 * c_hid, kernel_size=3, padding=1, stride=2
+            ),  # 16x16 => 8x8
+            nn.ReLU(),
+            nn.Conv2d(2 * c_hid, 2 * c_hid, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(
+                2 * c_hid, 2 * c_hid, kernel_size=3, padding=1, stride=2
+            ),  # 8x8 => 4x4
+            nn.ReLU(),
+            nn.Flatten(),  # Image grid to single feature vector
+        )
+        self.linear = nn.Linear(2 * 16 * c_hid, z_dim)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -49,8 +73,10 @@ class ConvEncoder(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        x = None
-        raise NotImplementedError
+        x = x.float() / 15 * 2.0 - 1.0  # Move images between -1 and 1
+
+        out = self.net(x)
+        z = self.linear(out)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -80,7 +106,39 @@ class ConvDecoder(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+
+        self.z_dim = z_dim
+
+        c_hid = 32
+        num_input_channels = 1
+
+        self.linear = nn.Sequential(nn.Linear(z_dim, 2 * 16 * c_hid), nn.ReLU())
+
+        self.net = nn.Sequential(
+            nn.ConvTranspose2d(
+                2 * c_hid,
+                2 * c_hid,
+                kernel_size=3,
+                output_padding=0,
+                padding=1,
+                stride=2,
+            ),  # 4x4 => 7x7
+            nn.ReLU(),
+            nn.Conv2d(2 * c_hid, 2 * c_hid, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(
+                2 * c_hid, c_hid, kernel_size=3, output_padding=1, padding=1, stride=2
+            ),  # 7x7 => 14x14
+            nn.ReLU(),
+            nn.Conv2d(c_hid, c_hid, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(
+                c_hid, num_input_channels, kernel_size=3, output_padding=1, padding=1, stride=2
+            ),
+            # shape = (in - 1)*stride - 2*padding + dilation * (kernel-1)+opadding+1
+            nn.Tanh(),  # The input images is scaled between -1 and 1, hence the output has to be bounded as well
+        )
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -95,8 +153,9 @@ class ConvDecoder(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        recon_x = None
-        raise NotImplementedError
+        recon_x = self.linear(z)
+        recon_x = recon_x.view(z.shape[0], -1, 4, 4)
+        recon_x = self.net(recon_x)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -117,7 +176,14 @@ class Discriminator(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+        layers = [
+            nn.Linear(z_dim, 512),
+            nn.LeakyReLU(0.2),
+            nn.Linear(512, 512),
+            nn.LeakyReLU(0.2),
+            nn.Linear(512, 1),
+        ]
+        self.layers = nn.Sequential(*layers)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -127,14 +193,13 @@ class Discriminator(nn.Module):
         Inputs:
             z - Batch of latent codes. Shape: [B,z_dim]
         Outputs:
-            preds - Predictions whether a specific latent code is fake (<0) or real (>0). 
+            preds - Predictions whether a specific latent code is fake (<0) or real (>0).
                     No sigmoid should be applied on the output. Shape: [B,1]
         """
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        preds = None
-        raise NotImplementedError
+        preds = self.layers(z)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -172,9 +237,8 @@ class AdversarialAE(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        recon_x_ = None
-        z = None
-        raise NotImplementedError
+        z = self.encoder(x)
+        recon_x = self.decoder(z)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -197,17 +261,25 @@ class AdversarialAE(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        ae_loss = None
-        logging_dict = {"gen_loss": None,
-                        "recon_loss": None,
-                        "ae_loss": None}
-        raise NotImplementedError
+        recon_loss = F.mse_loss(x, recon_x)
+        
+        # disc_logits = self.discriminator(z_fake)
+        # gen_loss = F.binary_cross_entropy_with_logits(disc_logits,torch.ones_like(disc_logits))
+
+        gen_loss, _ = self.get_loss_discriminator(z_fake)
+
+        ae_loss = lambda_ * recon_loss + (1 - lambda_) * gen_loss
+        logging_dict = {
+            "gen_loss": gen_loss,
+            "recon_loss": recon_loss,
+            "ae_loss": ae_loss,
+        }
         #######################
         # END OF YOUR CODE    #
         #######################
         return ae_loss, logging_dict
 
-    def get_loss_discriminator(self,  z_fake):
+    def get_loss_discriminator(self, z_fake):
         """
         Inputs:
             z_fake - Batch of latent codes for fake samples. Shape: [B,z_dim]
@@ -223,12 +295,32 @@ class AdversarialAE(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        disc_loss = None
-        logging_dict = {"disc_loss": None,
-                        "loss_real": None,
-                        "loss_fake": None,
-                        "accuracy": None}
-        raise NotImplementedError
+
+        # prediction logits from the "true" prior
+        logits_real = self.discriminator(
+            torch.randn_like(z_fake)
+        )
+        logits_fake = self.discriminator(z_fake)
+
+        accuracy = ((logits_real > 0).sum() + (logits_fake <= 0).sum()).float() / (
+            logits_real.shape[0] + logits_fake.shape[0]
+        )
+
+        loss_real = F.binary_cross_entropy_with_logits(
+            logits_real, torch.ones_like(logits_real)
+        )
+        loss_fake = F.binary_cross_entropy_with_logits(
+            logits_fake, torch.zeros_like(logits_fake)
+        )
+
+        disc_loss = loss_real + loss_fake
+
+        logging_dict = {
+            "disc_loss": disc_loss,
+            "loss_real": loss_real,
+            "loss_fake": loss_fake,
+            "accuracy": accuracy,
+        }
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -247,8 +339,10 @@ class AdversarialAE(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        x = None
-        raise NotImplementedError
+
+        x = torch.randn(batch_size, self.z_dim).to(self.device)
+        x = self.decoder(x)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -260,5 +354,3 @@ class AdversarialAE(nn.Module):
         Property function to get the device on which the generator is
         """
         return self.encoder.device
-
-
